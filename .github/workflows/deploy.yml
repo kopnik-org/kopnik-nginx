@@ -1,0 +1,26 @@
+name: "deploy"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: deploy
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: ssh
+        uses: kopnik-org/github-action-ssh@release
+        with:
+          command: |
+            cd ${{ secrets.SSH_PATH }}
+            git pull
+            docker-compose down
+            docker-compose pull --quiet
+            docker-compose up -d
+          host: staging.kopnik.org
+          username: someuser
+          password: ${{ secrets.SSH_PASSWORD }}
