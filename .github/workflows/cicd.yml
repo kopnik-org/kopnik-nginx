@@ -1,0 +1,42 @@
+name: "test"
+
+on:
+  push:
+    branches:
+      - main
+      - fix*
+      - feature*
+
+jobs:
+  build:
+    name: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - run: docker build --no-cache -t kopnikorg/kopnik-nginx:latest ./.docker/
+      - run: docker login -u alexey2baranov -p ${{ secrets.DOCKER_PASSWORD }}
+      - run: docker push kopnikorg/kopnik-nginx:latest
+
+  deploy:
+    name: deploy
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: ssh
+        uses: alexey2baranov/github-action-ssh@release
+        with:
+          command: |
+            cd ${{ secrets.SSH_PATH }}
+            cp default.env .env
+            sed -i 's/VK_CLIENT_SECRET=/VK_CLIENT_SECRET=${{ secrets.VK_CLIENT_SECRET }}/g' .env
+            sed -i 's/VK_SVETOSLAV_TOKEN=/VK_SVETOSLAV_TOKEN=${{ secrets.VK_SVETOSLAV_TOKEN }}/g' .env
+            git pull
+            docker-compose down
+            docker-compose pull --quiet
+            docker-compose up -d
+          host: ${{ secrets.SSH_HOST }}
+          username: someuser
+          password: ${{ secrets.SSH_PASSWORD }}
